@@ -127,7 +127,7 @@ Problemas encontrados ⚠️:
 
 ## 👩‍💻 Autor
 
-**Duany Kethellyn da Silva Rocker**
+**Duany Rocker**
 
 * Analista de Segurança em Formação
 * LinkedIn: [seu\_linkedin](https://www.linkedin.com/in/duanyrocker/)
