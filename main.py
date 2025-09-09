@@ -5,15 +5,31 @@ import requests
 import json
 import yaml
 import os
+from SmartSecurityPy import PasswordValidator
 
 
 # -------------------------
 # Função: Gerar Senha Forte
 # -------------------------
-def gerar_senha(tamanho=16):
-    caracteres = string.ascii_letters + string.digits + string.punctuation
-    senha = ''.join(secrets.choice(caracteres) for _ in range(tamanho))
-    return senha
+def gerar_senha(tamanho, maiusculas, minusculas, qtd_digitos, especiais):
+    total_requisitos = maiusculas + minusculas + qtd_digitos
+    restante = tamanho - total_requisitos
+    senha = []
+
+    # Adiciona os requisitos obrigatórios
+    senha += [secrets.choice(string.ascii_uppercase) for _ in range(maiusculas)]
+    senha += [secrets.choice(string.ascii_lowercase) for _ in range(minusculas)]
+    senha += [secrets.choice(string.digits) for _ in range(qtd_digitos)]
+
+    # Preenche o restante com caracteres especiais escolhidos
+    if especiais:  # só adiciona se o usuário não deixar vazio
+        senha += [secrets.choice(especiais) for _ in range(restante)]
+    else:
+        # fallback: se não informar especiais, usa todos os símbolos
+        senha += [secrets.choice(string.punctuation) for _ in range(restante)]
+
+    secrets.SystemRandom().shuffle(senha)
+    return ''.join(senha)
 
 
 # -------------------------
@@ -43,14 +59,19 @@ def validar_arquivo(caminho):
         print("Arquivo não encontrado!")
         return False
 
-    if caminho.endswith('.json'):
-        with open(caminho, 'r') as f:
-            dados = json.load(f)
-    elif caminho.endswith('.yaml') or caminho.endswith('.yml'):
-        with open(caminho, 'r') as f:
-            dados = yaml.safe_load(f)
-    else:
-        print("Formato de arquivo não suportado!")
+    # Detecta extensão e tenta carregar
+    try:
+        if caminho.endswith('.json'):
+            with open(caminho, 'r', encoding="utf-8") as f:
+                dados = json.load(f)
+        elif caminho.endswith(('.yaml', '.yml')):
+            with open(caminho, 'r', encoding="utf-8") as f:
+                dados = yaml.safe_load(f)
+        else:
+            print("Formato de arquivo não suportado!")
+            return False
+    except Exception as e:
+        print(f"Erro ao ler o arquivo: {e}")
         return False
 
     problemas = []
@@ -81,10 +102,48 @@ def menu():
         escolha = input("Escolha uma opção: ")
 
         if escolha == "1":
-            tamanho = input("Digite o tamanho da senha (padrão 12): ")
-            tamanho = int(tamanho) if tamanho.isdigit() else 12
-            senha = gerar_senha(tamanho)
-            print("Senha gerada:", senha)
+            while True:
+                exemplo_especiais = string.punctuation
+                try:
+                    tamanho = int(input("Digite o tamanho da senha desejada: "))
+                    especiais = input(f"Digite quais caracteres especiais você quer na sua senha "
+                                      f"(pressione Enter para usar padrão {exemplo_especiais}): ")
+                    maiusculas = int(input("Digite quantas letras maiúsculas você quer na sua senha: "))
+                    minusculas = int(input("Digite quantas letras minúsculas você quer na sua senha: "))
+                    qtd_digitos = int(input("Digite quantos números você quer na sua senha: "))
+                except ValueError:
+                    print("Erro: insira apenas números nos campos de quantidade.")
+                    continue
+
+                total_requisitos = maiusculas + minusculas + qtd_digitos
+                if total_requisitos > tamanho:
+                    print("Erro: a soma dos requisitos excede o tamanho total da senha.")
+                else:
+                    break
+
+            senha = gerar_senha(tamanho, maiusculas, minusculas, qtd_digitos, especiais)
+
+            # Cria uma instância do validador
+            validator = PasswordValidator()
+            result = validator.validate_password(senha)
+
+            print(f"\nSenha gerada: {senha}")
+            print(f"Score: {result.score}")  # Pontuação de 0-100
+            print(f"É forte? {result.is_strong}")  # True/False
+
+            # Mostra feedback se existir
+            if result.feedback:
+                print("\n🔎 Feedback sobre a senha:")
+                for f in result.feedback:
+                    print("-", f)
+
+            # Mostra sugestões específicas
+            suggestions = validator.get_password_suggestions(senha)
+            if suggestions:
+                print("\n💡 Sugestões para melhorar:")
+                for s in suggestions:
+                    print("-", s)
+
             vazou = checar_senha_vazada(senha)
             if vazou:
                 print(f"Atenção! Esta senha apareceu {vazou} vezes em vazamentos.")
@@ -108,4 +167,3 @@ def menu():
 # -------------------------
 if __name__ == "__main__":
     menu()
-
